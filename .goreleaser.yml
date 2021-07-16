@@ -114,9 +114,3 @@ docker_manifests:
   - minio/operator:{{ .Tag }}-arm64
   - minio/operator:{{ .Tag }}-ppc64le
   - minio/operator:{{ .Tag }}-s390x
-- name_template: minio/operator:latest
-  image_templates:
-  - minio/operator:{{ .Tag }}-amd64
-  - minio/operator:{{ .Tag }}-arm64
-  - minio/operator:{{ .Tag }}-ppc64le
-  - minio/operator:{{ .Tag }}-s390x
