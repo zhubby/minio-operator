@@ -86,16 +86,6 @@ func minioEnvironmentVars(t *miniov2.Tenant, wsSecret *v1.Secret, hostsTemplate 
 			Name:  "MINIO_UPDATE_MINISIGN_PUBKEY",
 			Value: "RWTx5Zr1tiHQLwG9keckT0c45M3AGeHD6IvimQHpyRywVWGbP1aVSGav",
 		}, corev1.EnvVar{
-			Name: miniov2.WebhookMinIOArgs,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: miniov2.WebhookSecret,
-					},
-					Key: miniov2.WebhookMinIOArgs,
-				},
-			},
-		}, corev1.EnvVar{
 			// Add a fallback in-case operator is down.
 			Name:  "MINIO_ENDPOINTS",
 			Value: strings.Join(GetContainerArgs(t, hostsTemplate), " "),
