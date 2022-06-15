@@ -56,6 +56,53 @@ The body must be a JSON object representing a single audit log object created by
 
 This endpoint must be configured as an audit log endpoint in the MinIO server.
 
+#### Ingest API Filters
+
+Specifying ingest API filters allows for including or excluding audit log storage based on pattern matching criteria.
+
+Each API filter configuration is an include or exclude specification. If an incoming log matches any exclude configuration it is dropped without any further processing. If it does not match any exclude configuration, and if an include configuration is specified, the log is stored only if it matches an include configuration. If no include configuration is given, all logs not matching an exclude configuration are stored.
+
+The following ingest filters are supported and are configured via the environment:
+
+| Environment variable                      | Description                           |
+|-------------------------------------------|---------------------------------------|
+| `LOGSEARCH_INGEST_FILTER_APINAME_INCLUDE` | API Name matching criteria to include |
+| `LOGSEARCH_INGEST_FILTER_APINAME_EXCLUDE` | API Name matching criteria to exclude |
+
+The syntax for these environment variables is a list of [patterns](#pattern-matching) separated by semicolons (`;`). A log matches a filter if the concerned field matches any one of the patterns in the pattern list.
+
+**LIMITATION**: A pattern MUST NOT contain `;`.
+
+<details><summary>Example 1: Store only decommissioning logs and Delete operations</summary>
+
+Set the following ingest filter environment variables:
+
+```
+LOGSEARCH_INGEST_FILTER_APINAME_INCLUDE='*Decom*;Delete*'
+```
+</details>
+
+<details><summary>Example 2: Do not store Get operations</summary>
+
+Set the following ingest filter environment variables:
+
+```
+LOGSEARCH_INGEST_FILTER_APINAME_EXCLUDE='Get*'
+```
+</details>
+
+<details><summary>Example 3: Store only Put operations except PutBucket</summary>
+
+Set the following ingest filter environment variables:
+
+```
+LOGSEARCH_INGEST_FILTER_APINAME_EXCLUDE='PutBucket'
+LOGSEARCH_INGEST_FILTER_APINAME_INCLUDE='Put*'
+```
+
+</details>
+
+
 ### Query API
 
 ```
@@ -108,7 +155,9 @@ Allowed values for the `key` are:
 | `user_agent`      |
 | `response_status` |
 
-The value is a glob expression using `.` to signify any single character and `*` to match any number of characters. For example `bucket:photos-*` matches any bucket with a `photos-` prefix. To match a literal `.` or `*` prefix it with a `\`. To match a literal `\`, just double it: `\\`. The value pattern is case-sensitive.
+Pattern matching is defined [here](#pattern-matching). As an example `bucket:photos-*` matches any bucket with a `photos-` prefix. 
+
+When multiple filter parameters are given, only records matching all filter parameters are returned.
 
 <details><summary>Example 1: Filter and export request info logs of Put operations on the bucket `photos` in last 24 hours</summary>
 
@@ -129,3 +178,9 @@ curl -XGET -s \
 ```
 
 </details>
+
+### Pattern matching
+
+LogsearchAPI's support for pattern matching is specified here. The pattern matching supported is the same as database style wilcard (or glob) pattern matching. A pattern string without the `.` or `*` characters matches only itself. A `.` matches any single character and a `*` matches 0 or more characters. To match a literal `.` or `*` prefix it with a `\`. To match a literal `\`, just double it: `\\`. The value pattern is case-sensitive.
+
+For example `photos-*` matches any string starting with `photos-`.

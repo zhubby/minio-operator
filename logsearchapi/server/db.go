@@ -164,25 +164,9 @@ func (c *DBClient) InitDBTables(ctx context.Context) error {
 }
 
 // InsertEvent inserts audit event in the DB.
-func (c *DBClient) InsertEvent(ctx context.Context, eventBytes []byte) (err error) {
+func (c *DBClient) InsertEvent(ctx context.Context, event *Event) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-
-	if isEmptyEvent(eventBytes) {
-		return nil
-	}
-
-	// Log the event-data if we are unable to save it in db for some reason.
-	defer func() {
-		if err != nil {
-			log.Printf("audit event not saved: %s (cause: %v)", string(eventBytes), err)
-		}
-	}()
-
-	event, err := parseJSONEvent(eventBytes)
-	if err != nil {
-		return err
-	}
 
 	const (
 		insertAuditLogEvent QTemplate = `INSERT INTO %s (event_time, log) VALUES ($1, $2);`
@@ -210,8 +194,8 @@ func (c *DBClient) InsertEvent(ctx context.Context, eventBytes []byte) (err erro
 	defer func() { _ = tx.Rollback() }()
 
 	// NOTE: Timestamps are nanosecond resolution from MinIO, however we are
-	// using storing it with only microsecond precision in PG for simplicity
-	// as that is the maximum precision supported by it.
+	// storing it with only microsecond precision in PG for simplicity as
+	// that is the maximum precision supported by it.
 	eventJSON, errJSON := json.Marshal(event)
 	if errJSON != nil {
 		return errJSON

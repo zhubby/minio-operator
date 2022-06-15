@@ -23,7 +23,14 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 )
+
+// IngestFilters - ingest filter configuration.
+type IngestFilters struct {
+	APINameInclude []string
+	APINameExclude []string
+}
 
 // LogSearch represents the Log Search API server
 type LogSearch struct {
@@ -31,37 +38,31 @@ type LogSearch struct {
 	PGConnStr                      string
 	AuditAuthToken, QueryAuthToken string
 	DiskCapacityGBs                int
+	IngestFilters                  IngestFilters
 
 	// Runtime
 	DBClient *DBClient
 	*http.ServeMux
 }
 
-// NewLogSearch creates a LogSearch
-func NewLogSearch(pgConnStr, auditAuthToken string, queryAuthToken string, diskCapacity int) (ls *LogSearch, err error) {
-	ls = &LogSearch{
-		PGConnStr:       pgConnStr,
-		AuditAuthToken:  auditAuthToken,
-		QueryAuthToken:  queryAuthToken,
-		DiskCapacityGBs: diskCapacity,
-	}
-
+// InitLogSearch initializes LogSearch.
+func InitLogSearch(ls *LogSearch) (err error) {
 	// Initialize DB Client
 	ls.DBClient, err = NewDBClient(context.Background(), ls.PGConnStr)
 	if err != nil {
-		return nil, fmt.Errorf("Error connecting to db: %v", err)
+		return fmt.Errorf("Error connecting to db: %v", err)
 	}
 
 	// Initialize tables in db
 	err = ls.DBClient.InitDBTables(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("Error initializing tables: %v", err)
+		return fmt.Errorf("Error initializing tables: %v", err)
 	}
 
 	// Run migrations on db
 	err = ls.DBClient.runMigrations(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("error running migrations: %v", err)
+		return fmt.Errorf("error running migrations: %v", err)
 	}
 
 	// Create indices on db
@@ -88,7 +89,7 @@ func NewLogSearch(pgConnStr, auditAuthToken string, queryAuthToken string, diskC
 
 	go ls.DBClient.partitionTables()
 
-	return ls, nil
+	return nil
 }
 
 func (ls *LogSearch) writeErrorResponse(w http.ResponseWriter, status int, msg string, err error) {
@@ -116,9 +117,27 @@ func (ls *LogSearch) ingestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = ls.DBClient.InsertEvent(r.Context(), buf)
+	if isEmptyEvent(buf) {
+		return
+	}
+
+	// Log the event-data if we are unable to save it in db due to some error.
+
+	event, err := parseJSONEvent(buf)
+	if err != nil {
+		ls.writeErrorResponse(w, 400, "Error parsing event JSON", err)
+		log.Printf("audit event not saved: %s (cause: %v)", string(buf), err)
+		return
+	}
+
+	if !ls.IngestFilters.evalFilters(event) {
+		return
+	}
+
+	err = ls.DBClient.InsertEvent(r.Context(), event)
 	if err != nil {
 		ls.writeErrorResponse(w, 500, "Error writing to DB", err)
+		log.Printf("audit event not saved: %s (cause: %v)", string(buf), err)
 	}
 }
 
@@ -152,6 +171,20 @@ func (ls *LogSearch) queryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getIngestFilters() (apiIncl []string, apiExcl []string) {
+	incl := os.Getenv(APINameIncludeFilter)
+	if incl != "" {
+		apiIncl = strings.Split(incl, ";")
+	}
+
+	excl := os.Getenv(APINameExcludeFilter)
+	if excl != "" {
+		apiExcl = strings.Split(excl, ";")
+	}
+
+	return
+}
+
 // LoadEnv loads environment variables and returns
 // a new LogSearch.
 func LoadEnv() (*LogSearch, error) {
@@ -172,5 +205,28 @@ func LoadEnv() (*LogSearch, error) {
 		return nil, errors.New(DiskCapacityEnv + " env variable is required and must be an integer.")
 	}
 
-	return NewLogSearch(pgConnStr, auditAuthToken, queryAuthToken, diskCapacity)
+	incl, excl := getIngestFilters()
+	if len(incl) != 0 {
+		log.Printf("LogIngestFilter: API Name include filter configured with patterns: %s", strings.Join(incl, ", "))
+	}
+	if len(excl) != 0 {
+		log.Printf("LogIngestFilter: API Name exclude filter configured with patterns: %s", strings.Join(excl, ", "))
+	}
+
+	ls := &LogSearch{
+		PGConnStr:       pgConnStr,
+		AuditAuthToken:  auditAuthToken,
+		QueryAuthToken:  queryAuthToken,
+		DiskCapacityGBs: diskCapacity,
+		IngestFilters: IngestFilters{
+			APINameInclude: incl,
+			APINameExclude: excl,
+		},
+	}
+
+	if err := InitLogSearch(ls); err != nil {
+		return nil, err
+	}
+
+	return ls, nil
 }

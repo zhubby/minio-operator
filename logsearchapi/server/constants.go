@@ -14,13 +14,12 @@
 
 package server
 
+// Environment variable name constants
 const (
-	// QueryAuthTokenEnv environment variable
-	QueryAuthTokenEnv = "MINIO_LOG_QUERY_AUTH_TOKEN"
-	// PgConnStrEnv environment variable
-	PgConnStrEnv = "LOGSEARCH_PG_CONN_STR"
-	// AuditAuthTokenEnv environment variable
-	AuditAuthTokenEnv = "LOGSEARCH_AUDIT_AUTH_TOKEN"
-	// DiskCapacityEnv environment variable
-	DiskCapacityEnv = "LOGSEARCH_DISK_CAPACITY_GB"
+	QueryAuthTokenEnv    = "MINIO_LOG_QUERY_AUTH_TOKEN"
+	PgConnStrEnv         = "LOGSEARCH_PG_CONN_STR"
+	AuditAuthTokenEnv    = "LOGSEARCH_AUDIT_AUTH_TOKEN"
+	DiskCapacityEnv      = "LOGSEARCH_DISK_CAPACITY_GB"
+	APINameIncludeFilter = "LOGSEARCH_INGEST_FILTER_APINAME_INCLUDE"
+	APINameExcludeFilter = "LOGSEARCH_INGEST_FILTER_APINAME_EXCLUDE"
 )
