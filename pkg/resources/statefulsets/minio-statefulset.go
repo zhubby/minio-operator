@@ -16,6 +16,7 @@ package statefulsets
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -53,6 +54,12 @@ func consoleEnvVars(t *miniov2.Tenant) []corev1.EnvVar {
 	}
 	if t.HasPrometheusEnabled() {
 		url := fmt.Sprintf("http://%s:%d", t.PrometheusHLServiceName(), miniov2.PrometheusAPIPort)
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  miniov2.ConsolePrometheusURL,
+			Value: url,
+		})
+	} else {
+		url := os.Getenv("EXTERNAL_PROMETHEUS_URL")
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  miniov2.ConsolePrometheusURL,
 			Value: url,
