@@ -15,3 +15,4 @@ logsearchapi-bin
 .vscode
 minio.yaml
 nancy
+vendor
