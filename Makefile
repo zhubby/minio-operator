@@ -9,7 +9,7 @@ TAG ?= "minio/operator:$(VERSION)"
 LDFLAGS ?= "-s -w -X main.Version=$(VERSION)"
 TMPFILE := $(shell mktemp)
 GOPATH := $(shell go env GOPATH)
-GOARCH := $(shell go env GOARCH)
+GOARCH := amd64
 GOOS := $(shell go env GOOS)
 
 HELM_HOME=helm/operator
@@ -38,7 +38,7 @@ operator: verify
 	@CGO_ENABLED=0 GOOS=linux go build -trimpath --ldflags $(LDFLAGS) -o minio-operator
 
 docker: operator logsearchapi
-	@docker build --no-cache -t $(TAG) .
+	@docker build --platform=amd64 --no-cache -t $(TAG) .
 
 build: regen-crd verify plugin logsearchapi operator docker
 
